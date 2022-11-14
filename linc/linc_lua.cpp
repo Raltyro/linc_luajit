@@ -1,6 +1,8 @@
 #include <hxcpp.h>
 #include <hx/CFFI.h>
 
+#include <map>
+
 #include "./linc_lua.h"
 #include "../lib/lua/src/lua.hpp"
 
@@ -68,6 +70,10 @@ namespace linc {
 
 		::String _typename(lua_State* l, int v){
 			return ::String(lua_typename(l, v));
+		}
+
+		void pushboolean(lua_State *l, bool b) {
+			lua_pushboolean(l, b ? 1 : 0);
 		}
 
 		void pushcclosure(lua_State *l, ::cpp::Function<int(lua_State*)> fn, int n) {
@@ -255,4 +261,31 @@ namespace linc {
 			lua_pop(L, 1);
 		}
 	} //helpers
+
+	namespace callbacks {
+		static luaCallbackFN handler = 0;
+		static int luaCallback(lua_State *l) {
+			return handler(l, (::Dynamic*)lua_topointer(l, lua_upvalueindex(1)));
+		}
+
+		void pushcallback(lua_State* l, ::Dynamic fn) {
+			lua_pushlightuserdata(l, (void*)fn);
+			lua_pushcclosure(l, luaCallback, 1);
+		}
+
+		void init_callbacks(luaCallbackFN fn) {
+			handler = fn;
+		}
+
+		void add_callback(lua_State* l, const char *name, ::Dynamic fn) {
+			lua_pushlightuserdata(l, (void*)fn);
+			lua_pushcclosure(l, luaCallback, 1);
+			lua_setglobal(l, name);
+		}
+
+		void remove_callback(lua_State* l, const char *name) {
+			lua_pushnil(l);
+			lua_setglobal(l, name);
+		}
+	} //callbacks
 } //linc

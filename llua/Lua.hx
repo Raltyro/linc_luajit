@@ -2,6 +2,7 @@ package llua;
 
 import llua.State;
 import cpp.Callable;
+import cpp.RawPointer;
 
 @:keep
 @:include('linc_lua.h')
@@ -102,7 +103,7 @@ extern class Lua {
 	static function newthread(l:State):State;
 
 	@:native('linc::lua::atpanic')
-	static function atpanic(l:State, panicf:Callable<StatePointer->Int>):Callable<StatePointer->Int>;
+	static function atpanic(l:State, panicf:Lua_CFunction):Lua_CFunction;
 
 
 	/* basic stack manipulation */
@@ -246,6 +247,9 @@ extern class Lua {
 	static inline function toboolean(l:State, idx:Int):Bool
 		return _toboolean(l, idx) != 0;
 
+	@:native('linc::lua::tostring')
+	static function tostring(l:State, idx:Int):String;
+
 	@:native('linc::lua::tolstring')
 	static function tolstring(l:State, idx:Int, len:UInt):String;
 
@@ -253,7 +257,7 @@ extern class Lua {
 	static function objlen(l:State, idx:Int):Int;
 
 	@:native('linc::lua::tocfunction')
-	static function tocfunction(l:State, idx:Int):Callable<StatePointer->Int>;
+	static function tocfunction(l:State, idx:Int):Lua_CFunction;
 
 	@:native('lua_touserdata')
 	static function touserdata(l:State, idx:Int):Void;
@@ -262,7 +266,8 @@ extern class Lua {
 	static function tothread(l:State, idx:Int):State;
 
 	@:native('linc::lua::topointer')
-	static function topointer(l:State, idx:Int):cpp.RawPointer<Any>;
+	static function topointer(l:State, idx:Int):Lua_Pointer;
+
 
 	/* push functions (C -> stack) */
 
@@ -288,17 +293,13 @@ extern class Lua {
 	// static function pushfstring(l:State, fmt:String, ...):Void;
 
 	@:native('linc::lua::pushcclosure')
-	static function pushcclosure(l:State, fn:Callable<StatePointer->Int>, n:Int):Void;
+	static function pushcclosure(l:State, fn:Lua_CFunction, n:Int):Void;
 
 	@:native('linc::lua::pushcfunction')
-	static function pushcfunction(l:State, f:Callable<StatePointer->Int>):Void;
+	static function pushcfunction(l:State, fn:Lua_CFunction):Void;
 
-	@:noCompletion
-	@:native('lua_pushboolean')
-	static function _pushboolean(l:State, b:Int):Void;
-
-	static inline function pushboolean(l:State, b:Bool):Void
-		_pushboolean(l, b == true ? 1 : 0);
+	@:native('linc::lua::pushboolean')
+	static function pushboolean(l:State, b:Bool):Void;
 
 	@:native('lua_pushlightuserdata')
 	static function pushlightuserdata(l:State, p:Any):Void;
@@ -364,7 +365,7 @@ extern class Lua {
 	static function pcall(l:State, nargs:Int, nresults:Int, errfunc:Int):Int;
 
 	@:native('linc::lua::cpcall') // works?
-	static function cpcall(l:State, func:Callable<StatePointer->Int>, ud:cpp.RawPointer<Any>):Int;
+	static function cpcall(l:State, func:Lua_CFunction, ud:Lua_Pointer):Int;
 
 	// @:native('lua_load') //?
 	// static function load(l:State, reader:lua_Reader, data:Void, chunkname:String):Int;
@@ -437,9 +438,6 @@ extern class Lua {
 
 	@:native('lua_getglobal')
 	static function getglobal(l:State, name:String):Void;
-
-	@:native('linc::lua::tostring')
-	static function tostring(l:State, idx:Int):String;
 
 
 	/* hack */
@@ -537,12 +535,24 @@ extern class Lua {
 
 	@:native('linc::helpers::unregister_hxtrace') // works?
 	static function unregister_hxtrace(l:State):Void;
+
+	@:native('linc::callbacks::init_callbacks')
+	static function init_callbacks(fn:Callable<State->Lua_CallbackPointer->Int>):Void;
+
+	@:native('linc::callbacks::pushcallback')
+	static function pushcallback(l:State, fn:Any):Void;
+
+	@:native('linc::callbacks::add_callback')
+	static function add_callback(l:State, name:String, fn:Any):Void;
+
+	@:native('linc::callbacks::remove_callback')
+	static function remove_callback(l:State, name:String):Void;
 }
 
 class Lua_helper {
 	/* custom traces */
 
-	public static var trace:(s:String, ?inf:haxe.PosInfos) -> Void = function(s:String, ?_) {
+	public static var trace:(s:String, ?inf:haxe.PosInfos) -> Void = function(s:String, ?_):Void {
 		trace(s);
 	};
 
@@ -558,6 +568,42 @@ class Lua_helper {
 	static inline function print_function(s:String):Int {
 		if (Lua_helper.trace != null) Lua_helper.trace(s);
 		return 0;
+	}
+
+
+	/* callbacks */
+
+	private static var __inited:Bool = false;
+	private static var _args:Array<Any>;
+
+	public static function init_callbacks():Void {
+		if (__inited) return;
+		Lua.init_callbacks(Callable.fromStaticFunction(callback_handler));
+		_args = [];
+		__inited = true;
+	}
+
+	public static function add_callback(l:State, fname:String, fn:Lua_Callback):Void
+		Lua.add_callback(l, fname, fn);
+
+	public static function remove_callback(l:State, fname:String):Void
+		Lua.remove_callback(l, fname);
+
+	private inline static function callback_handler(l:State, p:Lua_CallbackPointer):Int {
+		var fn:Lua_Callback = getcallback(p);
+		if (fn == null) return 0;
+
+		var nparams:Int = Lua.gettop(l);
+		getarguments(l, _args, nparams);
+		_args.resize(nparams + 1);
+
+		var ret = null;
+		if (nparams <= 0)
+			ret = fn();
+		else
+			ret = Reflect.callMethod(null, fn, _args);
+
+		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
 	}
 
 	/* useful macros */
@@ -586,10 +632,13 @@ class Lua_helper {
 	}
 
 	@:noCompletion
-	public static function getstate(r:StatePointer):State return untyped __cpp__("r");
+	public static function getstate(v:StatePointer):State return untyped __cpp__("v");
 
 	@:noCompletion
-	public static function getstatepointer(l:State):StatePointer return untyped __cpp__("l");
+	public static function getstatepointer(v:State):StatePointer return untyped __cpp__("v");
+
+	@:noCompletion
+	public static function getcallback(v:Lua_CallbackPointer):Lua_Callback return untyped __cpp__("v");
 }
 
 typedef Lua_Debug = {
@@ -606,3 +655,8 @@ typedef Lua_Debug = {
 
 	@:optional var i_ci:Int;				// private
 }
+
+typedef Lua_CFunction = Callable<StatePointer->Int>;
+typedef Lua_Pointer = RawPointer<Any>;
+typedef Lua_Callback = Dynamic;
+typedef Lua_CallbackPointer = RawPointer<Lua_Callback>;

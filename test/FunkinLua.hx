@@ -153,7 +153,7 @@ class FunkinLua {
 	#if LUA_ALLOWED
 	private static var _args:Array<Any>;
 	private var callbacks:Map<String, Dynamic>;
-	private var callbackHandler:cpp.Callable<StatePointer->Int>;
+	private var callbackHandler:Lua_CFunction;
 
 	private inline function initCallbacks() {
 		if (callbackHandler != null) return;
