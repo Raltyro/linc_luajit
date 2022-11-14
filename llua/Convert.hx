@@ -32,7 +32,7 @@ class Convert {
 		return true;
 	}
 
-	public static inline function fromLua(l:State, v:Int):Any {
+	public static function fromLua(l:State, v:Int):Any {
 		var vtype = Lua.type(l, v);
 		var ret:Any;
 

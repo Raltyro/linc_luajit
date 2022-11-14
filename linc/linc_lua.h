@@ -28,12 +28,15 @@ namespace linc {
 
 		extern ::String tostring(lua_State *l, int v);
 		extern ::String tolstring(lua_State *l, int v, size_t *len);
-		extern ::cpp::Function<int(lua_State*)> tocfunction(lua_State* l, int i);
+		extern ::cpp::Function<int(lua_State*)> tocfunction(lua_State* l, int v);
+		extern ::Dynamic* topointer(lua_State *l, int v);
 
 		extern ::String _typename(lua_State *l, int tp);
 
 		extern void pushcclosure(lua_State *l, ::cpp::Function<int(lua_State*)> fn, int n);
 		extern void pushcfunction(lua_State *l, ::cpp::Function<int(lua_State*)> fn);
+
+		extern int cpcall(lua_State *l, ::cpp::Function<int(lua_State*)> func, ::Dynamic* ud);
 
 		extern int getstack(lua_State *L, int level, Dynamic ar);
 		extern int getinfo(lua_State *L, const char *what, Dynamic ar);

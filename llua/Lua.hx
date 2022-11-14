@@ -261,9 +261,8 @@ extern class Lua {
 	@:native('lua_tothread')
 	static function tothread(l:State, idx:Int):State;
 
-	@:native('lua_topointer')
-	static function topointer(l:State, idx:Int):Void;
-
+	@:native('linc::lua::topointer')
+	static function topointer(l:State, idx:Int):cpp.RawPointer<Any>;
 
 	/* push functions (C -> stack) */
 
@@ -301,8 +300,8 @@ extern class Lua {
 	static inline function pushboolean(l:State, b:Bool):Void
 		_pushboolean(l, b == true ? 1 : 0);
 
-	// @:native('lua_pushlightuserdata') //?
-	// static function pushlightuserdata(l:State, p:Void):Void;
+	@:native('lua_pushlightuserdata')
+	static function pushlightuserdata(l:State, p:Any):Void;
 
 	@:native('lua_pushthread')
 	static function pushthread(l:State):Int;
@@ -364,8 +363,8 @@ extern class Lua {
 	@:native('lua_pcall')
 	static function pcall(l:State, nargs:Int, nresults:Int, errfunc:Int):Int;
 
-	// @:native('lua_cpcall') //?
-	// static function cpcall(l:State, func:lua_CFunction, ud:Void):Int;
+	@:native('linc::lua::cpcall') // works?
+	static function cpcall(l:State, func:Callable<StatePointer->Int>, ud:cpp.RawPointer<Any>):Int;
 
 	// @:native('lua_load') //?
 	// static function load(l:State, reader:lua_Reader, data:Void, chunkname:String):Int;
@@ -561,6 +560,8 @@ class Lua_helper {
 		return 0;
 	}
 
+	/* useful macros */
+
 	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int):Array<Any> {
 		if (args == null) args = [];
 		if (nparams == null) nparams = Lua.gettop(l);
@@ -586,6 +587,9 @@ class Lua_helper {
 
 	@:noCompletion
 	public static function getstate(r:StatePointer):State return untyped __cpp__("r");
+
+	@:noCompletion
+	public static function getstatepointer(l:State):StatePointer return untyped __cpp__("l");
 }
 
 typedef Lua_Debug = {

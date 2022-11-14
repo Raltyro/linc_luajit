@@ -143,7 +143,9 @@ class FunkinLua {
 		callbacks[fname] = f;
 		Lua.pushstring(lua, fname);
 		Lua.pushstring(lua, scriptName);
-		Lua.pushcclosure(lua, callbackHandler, 2);
+		Lua.pushlightuserdata(lua, lua);
+		trace("woah", lua);
+		Lua.pushcclosure(lua, callbackHandler, 3);
 		Lua.setglobal(lua, fname);
 		#end
 	}
@@ -165,6 +167,9 @@ class FunkinLua {
 
 		var fname:String = Lua.tostring(l, Lua.upvalueindex(1));
 		var scriptname:String = Lua.tostring(l, Lua.upvalueindex(2));
+		var pointer:StatePointer = cast Lua.topointer(l, Lua.upvalueindex(3));
+		var state:State = Lua_helper.getstate(pointer);
+		trace(pointer, pointer == r, state, state == l);
 		if (fname == null || scriptname == null) return 0;
 
 		var script = scriptFields.get(scriptname);

@@ -58,8 +58,12 @@ namespace linc {
 			return ::String(lua_tolstring(l, v, len));
 		}
 
-		::cpp::Function<int(lua_State*)> tocfunction(lua_State* l, int i) {
-			return (::cpp::Function<int(lua_State*)>) lua_tocfunction(l, i);
+		::cpp::Function<int(lua_State*)> tocfunction(lua_State* l, int v) {
+			return (::cpp::Function<int(lua_State*)>) lua_tocfunction(l, v);
+		}
+
+		::Dynamic* topointer(lua_State *l, int v) {
+			return (::Dynamic*)lua_topointer(l, v);
 		}
 
 		::String _typename(lua_State* l, int v){
@@ -72,6 +76,10 @@ namespace linc {
 
 		void pushcfunction(lua_State *l, ::cpp::Function<int(lua_State*)> fn) {
 			lua_pushcfunction(l, (lua_CFunction)fn);
+		}
+
+		int cpcall(lua_State *l, ::cpp::Function<int(lua_State*)> func, ::Dynamic* ud) {
+			return (int)lua_cpcall(l, (lua_CFunction)func, (void*)ud);
 		}
 
 		int getstack(lua_State *L, int level, Dynamic ar){
