@@ -4,8 +4,8 @@ package llua;
 @:structAccess
 @:include('linc_lua.h') @:native("::luaL_Buffer")
 extern class LuaL_Buffer {
-	var p:String;		// current position in buffer
-	var lvl:Int;		// number of strings in the stack (level)
+	var p:String;      // current position in buffer
+	var lvl:Int;       // number of strings in the stack (level)
 	var L:State;
 	var buffer:String;
 }
