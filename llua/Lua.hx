@@ -51,9 +51,9 @@ extern class Lua {
 
 	/* pseudo-indices */
 
-	public static inline var LUA_REGISTRYINDEX:Int	= -10000;
-	public static inline var LUA_ENVIRONINDEX:Int	= -10001;
-	public static inline var LUA_GLOBALSINDEX:Int	= -10002;
+	public static inline var LUA_REGISTRYINDEX:Int = -10000;
+	public static inline var LUA_ENVIRONINDEX:Int  = -10001;
+	public static inline var LUA_GLOBALSINDEX:Int  = -10002;
 
 	@:native('lua_upvalueindex')
 	static function upvalueindex(i:Int):Int;
@@ -61,27 +61,27 @@ extern class Lua {
 
 	/* thread status */
 
-	public static inline var LUA_OK:Int			= 0;
-	public static inline var LUA_YIELD:Int		= 1;
-	public static inline var LUA_ERRRUN:Int		= 2;
-	public static inline var LUA_ERRSYNTAX:Int	= 3;
-	public static inline var LUA_ERRMEM:Int		= 4;
-	public static inline var LUA_ERRERR:Int		= 5;
+	public static inline var LUA_OK:Int        = 0;
+	public static inline var LUA_YIELD:Int     = 1;
+	public static inline var LUA_ERRRUN:Int    = 2;
+	public static inline var LUA_ERRSYNTAX:Int = 3;
+	public static inline var LUA_ERRMEM:Int    = 4;
+	public static inline var LUA_ERRERR:Int    = 5;
 
 
 	/* basic types */
 
-	public static inline var LUA_TNONE:Int			= -1;
+	public static inline var LUA_TNONE:Int          = -1;
 
-	public static inline var LUA_TNIL:Int			= 0;
-	public static inline var LUA_TBOOLEAN:Int		= 1;
+	public static inline var LUA_TNIL:Int           = 0;
+	public static inline var LUA_TBOOLEAN:Int       = 1;
 	public static inline var LUA_TLIGHTUSERDATA:Int = 2;
-	public static inline var LUA_TNUMBER:Int		= 3;
-	public static inline var LUA_TSTRING:Int		= 4;
-	public static inline var LUA_TTABLE:Int			= 5;
-	public static inline var LUA_TFUNCTION:Int		= 6;
-	public static inline var LUA_TUSERDATA:Int		= 7;
-	public static inline var LUA_TTHREAD:Int		= 8;
+	public static inline var LUA_TNUMBER:Int        = 3;
+	public static inline var LUA_TSTRING:Int        = 4;
+	public static inline var LUA_TTABLE:Int         = 5;
+	public static inline var LUA_TFUNCTION:Int      = 6;
+	public static inline var LUA_TUSERDATA:Int      = 7;
+	public static inline var LUA_TTHREAD:Int        = 8;
 
 
 	/* minimum Lua stack available to a C function */
@@ -388,14 +388,14 @@ extern class Lua {
 
 	/* garbage-collection function and options */
 
-	public static inline var LUA_GCSTOP:Int			= 0;
-	public static inline var LUA_GCRESTART:Int		= 1;
-	public static inline var LUA_GCCOLLECT:Int		= 2;
-	public static inline var LUA_GCCOUNT:Int		= 3;
-	public static inline var LUA_GCCOUNTB:Int		= 4;
-	public static inline var LUA_GCSTEP:Int			= 5;
-	public static inline var LUA_GCSETPAUSE:Int		= 6;
-	public static inline var LUA_GCSETSTEPMUL:Int	= 7;
+	public static inline var LUA_GCSTOP:Int       = 0;
+	public static inline var LUA_GCRESTART:Int    = 1;
+	public static inline var LUA_GCCOLLECT:Int    = 2;
+	public static inline var LUA_GCCOUNT:Int      = 3;
+	public static inline var LUA_GCCOUNTB:Int     = 4;
+	public static inline var LUA_GCSTEP:Int       = 5;
+	public static inline var LUA_GCSETPAUSE:Int   = 6;
+	public static inline var LUA_GCSETSTEPMUL:Int = 7;
 
 	@:native('lua_gc')
 	static function gc(l:State, what:Int, data:Int):Int;
@@ -456,19 +456,19 @@ extern class Lua {
 
 	/* Event codes */
 
-	public static inline var LUA_HOOKCALL:Int		= 0;
-	public static inline var LUA_HOOKRET:Int		= 1;
-	public static inline var LUA_HOOKLINE:Int		= 2;
-	public static inline var LUA_HOOKCOUNT:Int		= 3;
-	public static inline var LUA_HOOKTAILRET:Int	= 4;
+	public static inline var LUA_HOOKCALL:Int    = 0;
+	public static inline var LUA_HOOKRET:Int     = 1;
+	public static inline var LUA_HOOKLINE:Int    = 2;
+	public static inline var LUA_HOOKCOUNT:Int   = 3;
+	public static inline var LUA_HOOKTAILRET:Int = 4;
 
 
 	/* Event masks */
 
-	public static inline var LUA_MASKCALL:Int	= (1 << LUA_HOOKCALL);
-	public static inline var LUA_MASKRET:Int	= (1 << LUA_HOOKRET);
-	public static inline var LUA_MASKLINE:Int	= (1 << LUA_HOOKLINE);
-	public static inline var LUA_MASKCOUNT:Int	= (1 << LUA_HOOKCOUNT);
+	public static inline var LUA_MASKCALL:Int  = (1 << LUA_HOOKCALL);
+	public static inline var LUA_MASKRET:Int   = (1 << LUA_HOOKRET);
+	public static inline var LUA_MASKLINE:Int  = (1 << LUA_HOOKLINE);
+	public static inline var LUA_MASKCOUNT:Int = (1 << LUA_HOOKCOUNT);
 
 
 	/* Functions to be called by the debuger in specific events */
@@ -585,8 +585,7 @@ class Lua_helper {
 	}
 
 	@:noCompletion
-	public static function getstate(r:StatePointer):State
-		return untyped __cpp__("r");
+	public static function getstate(r:StatePointer):State return untyped __cpp__("r");
 }
 
 typedef Lua_Debug = {
