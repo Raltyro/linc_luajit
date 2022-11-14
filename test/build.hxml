@@ -1,7 +1,13 @@
--lib linc_luajit
+-lib linc_luajit-ralt
+
+-D windows
+-D HXCPP_M64
+-D LUA_ALLOWED
+
 -main Test.hx
 -cpp cpp/
 -cp ../
+
 # pick a target
 
 #-D mac
@@ -14,5 +20,4 @@
 #-D HXCPP_M64
 #-D HXCPP_M32
 
-#-cmd ./cpp/Test
 #-cmd ./cpp/Test.exe
