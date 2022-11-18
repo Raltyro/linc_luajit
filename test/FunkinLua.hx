@@ -33,11 +33,13 @@ class FunkinLua {
 		#if LUA_ALLOWED
 		lua = LuaL.newstate();
 		LuaL.openlibs(lua);
-		initCallbacks();
+		Lua_helper.init_callbacks(lua);
+		//initCallbacks();
 
 		initializeGlobal();
 
-		addCallback("duh", function(ref:Int):Any {
+		Lua_helper.add_callback(lua, "duh", function(ref:Int):Any {
+			trace("hello");
 			Lua.rawgeti(lua, Lua.LUA_REGISTRYINDEX, ref);
 			if (!Lua.isfunction(lua, -1)) return null;
 			Lua.call(lua, 0, 1);
@@ -133,11 +135,13 @@ class FunkinLua {
 		#if LUA_ALLOWED
 		if(lua == null) return;
 
+		Lua_helper.terminate_callbacks(lua);
 		Lua.close(lua);
 		lua = null;
 		#end
 	}
 
+	/*
 	public function addCallback(fname:String, f:Dynamic) {
 		#if LUA_ALLOWED
 		callbacks[fname] = f;
@@ -192,4 +196,5 @@ class FunkinLua {
 		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
 	}
 	#end
+	*/
 }

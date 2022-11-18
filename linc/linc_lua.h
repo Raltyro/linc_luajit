@@ -64,10 +64,11 @@ namespace linc {
 		extern void unregister_hxtrace(lua_State* L);
 	}
 
+	/*
 	namespace callbacks {
-		//extern void pushcallback(lua_State* l, ::Dynamic fn);
+		extern void pushcallback(lua_State* l, ::Dynamic fn);
 		extern void init_callbacks(luaCallbackFN fn);
-		//extern void add_callback(lua_State* l, const char *name, ::Dynamic fn);
+		extern void add_callback(lua_State* l, const char *name, ::Dynamic fn);
 		extern void remove_callback(lua_State* l, const char *name);
-	}
+	}*/
 }

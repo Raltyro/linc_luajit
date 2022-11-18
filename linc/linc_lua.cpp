@@ -262,6 +262,7 @@ namespace linc {
 		}
 	} //helpers
 
+	/*
 	namespace callbacks {
 		static luaCallbackFN handler = 0;
 		static int luaCallback(lua_State *l) {
@@ -287,5 +288,5 @@ namespace linc {
 			lua_pushnil(l);
 			lua_setglobal(l, name);
 		}
-	} //callbacks
+	}*/ //callbacks
 } //linc

@@ -260,7 +260,7 @@ extern class Lua {
 	static function tocfunction(l:State, idx:Int):Lua_CFunction;
 
 	@:native('lua_touserdata')
-	static function touserdata(l:State, idx:Int):Void;
+	static function touserdata(l:State, idx:Int):Any;
 
 	@:native('lua_tothread')
 	static function tothread(l:State, idx:Int):State;
@@ -536,6 +536,7 @@ extern class Lua {
 	@:native('linc::helpers::unregister_hxtrace') // works?
 	static function unregister_hxtrace(l:State):Void;
 
+	/*
 	@:native('linc::callbacks::init_callbacks')
 	static function init_callbacks(fn:Callable<State->Lua_CallbackPointer->Int>):Void;
 
@@ -547,8 +548,10 @@ extern class Lua {
 
 	@:native('linc::callbacks::remove_callback')
 	static function remove_callback(l:State, name:String):Void;
+	*/
 }
 
+@:include('Std')
 class Lua_helper {
 	/* custom traces */
 
@@ -574,23 +577,55 @@ class Lua_helper {
 	/* callbacks */
 
 	private static var __inited:Bool = false;
+	private static var _callbacks:Map<Int, Lua_Callback> = new Map<Int, Lua_Callback>();
+	private static var _luas:Map<StatePointer, Map<String, Int>> = new Map<StatePointer, Map<String, Int>>();
+	private static var _id:Int = 0;
+	private static var _callback_handler:Lua_CFunction;
 	private static var _args:Array<Any>;
 
-	public static function init_callbacks():Void {
+	public static function init_callbacks(l:State):Void {
+		var r:StatePointer = getstatepointer(l);
+		if (!_luas.exists(r)) _luas.set(r, new Map<String, Int>());
 		if (__inited) return;
-		Lua.init_callbacks(Callable.fromStaticFunction(callback_handler));
+		_callback_handler = Callable.fromStaticFunction(callback_handler);
 		_args = [];
 		__inited = true;
 	}
 
-	public static function add_callback(l:State, fname:String, fn:Lua_Callback):Void
-		Lua.add_callback(l, fname, fn);
+	public static function create_callback(l:State, fn:Lua_Callback):Int {
+		_callbacks.set(_id, fn);
+		Lua.pushinteger(l, _id);
+		Lua.pushcclosure(l, _callback_handler, 1);
 
-	public static function remove_callback(l:State, fname:String):Void
-		Lua.remove_callback(l, fname);
+		return _id++;
+	}
 
-	private inline static function callback_handler(l:State, p:Lua_CallbackPointer):Int {
-		var fn:Lua_Callback = getcallback(p);
+	public static function add_callback(l:State, fname:String, fn:Lua_Callback):Int {
+		var id = create_callback(l, fn);
+		_luas.get(getstatepointer(l)).set(fname, id);
+		Lua.setglobal(l, fname);
+		return id;
+	}
+
+	public static function unlink_callback(id:Int):Void _callbacks.remove(id);
+
+	public static function remove_callback(l:State, fname:String):Void {
+		inline unlink_callback(_luas.get(getstatepointer(l)).get(fname));
+		Lua.pushnil(l);
+		Lua.setglobal(l, fname);
+	}
+
+	public static function clear_callbacks(l:State):Void
+		for (key in _luas.get(getstatepointer(l)).keys()) inline remove_callback(l, key);
+
+	public static function terminate_callbacks(l:State):Void {
+		clear_callbacks(l);
+		_luas.remove(getstatepointer(l));
+	}
+
+	private inline static function callback_handler(r:StatePointer):Int {
+		var l:State = Lua_helper.getstate(r);
+		var fn:Lua_Callback = _callbacks.get(Lua.tointeger(l, Lua.upvalueindex(1)));
 		if (fn == null) return 0;
 
 		var nparams:Int = Lua.gettop(l);
@@ -638,7 +673,10 @@ class Lua_helper {
 	public static function getstatepointer(v:State):StatePointer return untyped __cpp__("v");
 
 	@:noCompletion
-	public static function getcallback(v:Lua_CallbackPointer):Lua_Callback return untyped __cpp__("v");
+	public static function getcallback(v:Lua_CallbackPointer):Lua_Callback return untyped __cpp__("*v");
+
+	@:noCompletion
+	public static function getcallbackpointer(v:Lua_Callback):Lua_CallbackPointer return untyped __cpp__("&v");
 }
 
 typedef Lua_Debug = {
