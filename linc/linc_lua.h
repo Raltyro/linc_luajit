@@ -9,7 +9,7 @@
 #include "../lib/lua/src/lua.hpp"
 
 namespace linc {
-	typedef ::cpp::Function < int(::cpp::Reference<lua_State>, ::Dynamic*) > luaCallbackFN;
+	typedef ::cpp::Function < int(::cpp::Reference<lua_State>, int) > luaCallbackFN;
 	typedef ::cpp::Function < int(String) > HxTraceFN;
 
 	namespace lua {
@@ -59,16 +59,18 @@ namespace linc {
 	}
 
 	namespace helpers {
+		extern int statetoint(lua_State* L);
 		extern void init_hxtrace(HxTraceFN fn);
 		extern void register_hxtrace(lua_State* L);
 		extern void unregister_hxtrace(lua_State* L);
 	}
 
-	/*
 	namespace callbacks {
-		extern void pushcallback(lua_State* l, ::Dynamic fn);
 		extern void init_callbacks(luaCallbackFN fn);
-		extern void add_callback(lua_State* l, const char *name, ::Dynamic fn);
-		extern void remove_callback(lua_State* l, const char *name);
-	}*/
+		extern int callback_id();
+		extern int create_callback(lua_State* L);
+		extern int add_callback(lua_State* L, const char *name);
+		extern int link_callback(lua_State* L, int id, const char *name);
+		extern void unlink_callback(lua_State* L, const char *name);
+	}
 }

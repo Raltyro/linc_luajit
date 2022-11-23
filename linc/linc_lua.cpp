@@ -2,6 +2,7 @@
 #include <hx/CFFI.h>
 
 #include <map>
+#include <cstdint>
 
 #include "./linc_lua.h"
 #include "../lib/lua/src/lua.hpp"
@@ -52,11 +53,11 @@ namespace linc {
 			return (::cpp::Function<int(lua_State*)>) lua_atpanic(l, (lua_CFunction)panicf);
 		}
 
-		::String tostring(lua_State *l, int v){
+		::String tostring(lua_State *l, int v) {
 			return ::String(lua_tostring(l, v));
 		}
 
-		::String tolstring(lua_State *l, int v, size_t *len){
+		::String tolstring(lua_State *l, int v, size_t *len) {
 			return ::String(lua_tolstring(l, v, len));
 		}
 
@@ -68,7 +69,7 @@ namespace linc {
 			return (::Dynamic*)lua_topointer(l, v);
 		}
 
-		::String _typename(lua_State* l, int v){
+		::String _typename(lua_State* l, int v) {
 			return ::String(lua_typename(l, v));
 		}
 
@@ -88,7 +89,7 @@ namespace linc {
 			return (int)lua_cpcall(l, (lua_CFunction)func, (void*)ud);
 		}
 
-		int getstack(lua_State *L, int level, Dynamic ar){
+		int getstack(lua_State *L, int level, Dynamic ar) {
 			lua_Debug dbg;
 			
 			int ret = lua_getstack(L, level, &dbg);
@@ -97,7 +98,7 @@ namespace linc {
 			return ret;
 		}
 
-		int getinfo(lua_State *L, const char *what, Dynamic ar){
+		int getinfo(lua_State *L, const char *what, Dynamic ar) {
 			lua_Debug dbg;
 
 			dbg.i_ci = ar->__FieldRef(HX_CSTRING("i_ci"));
@@ -145,14 +146,14 @@ namespace linc {
 			return ret;
 		}
 
-		::String getlocal(lua_State *L, Dynamic ar, int n){
+		::String getlocal(lua_State *L, Dynamic ar, int n) {
 			lua_Debug dbg;
 
 			dbg.i_ci = ar->__FieldRef(HX_CSTRING("i_ci"));
 			return ::String(lua_getlocal(L, &dbg, n));
 		}
 
-		::String setlocal(lua_State *L, Dynamic ar, int n){
+		::String setlocal(lua_State *L, Dynamic ar, int n) {
 			lua_Debug dbg;
 
 			dbg.i_ci = ar->__FieldRef(HX_CSTRING("i_ci"));
@@ -161,31 +162,31 @@ namespace linc {
 	} //lua
 
 	namespace lual {
-		::String checklstring(lua_State *l, int numArg, size_t *len){
+		::String checklstring(lua_State *l, int numArg, size_t *len) {
 			return ::String(luaL_checklstring(l, numArg, len));
 		}
 
-		::String optlstring(lua_State *l, int numArg, const char *def, size_t *len){
+		::String optlstring(lua_State *l, int numArg, const char *def, size_t *len) {
 			return ::String(luaL_optlstring(l, numArg, def, len));
 		}
 
-		::String prepbuffer(luaL_Buffer *B){
+		::String prepbuffer(luaL_Buffer *B) {
 			return ::String(luaL_prepbuffer(B));
 		}
 
-		::String gsub(lua_State *l, const char *s, const char *p, const char *r){
+		::String gsub(lua_State *l, const char *s, const char *p, const char *r) {
 			return ::String(luaL_gsub(l, s, p, r));
 		}
 
-		::String findtable(lua_State *L, int idx, const char *fname, int szhint){
+		::String findtable(lua_State *L, int idx, const char *fname, int szhint) {
 			return ::String(luaL_findtable(L, idx, fname, szhint));
 		}
 
-		::String checkstring(lua_State *L, int n){
+		::String checkstring(lua_State *L, int n) {
 			return ::String(luaL_checkstring(L, n));
 		}
 
-		::String optstring(lua_State *L, int n, const char *d){
+		::String optstring(lua_State *L, int n, const char *d) {
 			return ::String(luaL_optstring(L, n, d));
 		}
 
@@ -193,13 +194,17 @@ namespace linc {
 			luaL_error(L,fmt,"");
 		}
 
-		::String ltypename(lua_State *L, int idx){
+		::String ltypename(lua_State *L, int idx) {
 			return ::String(luaL_typename(L, idx));
 		}
 
 	} //lual
 
 	namespace helpers {
+		int statetoint(lua_State* L) {
+			return reinterpret_cast<std::uintptr_t>(L);
+		}
+
 		// haxe trace function
 
 		static HxTraceFN print_fn = 0;
@@ -244,17 +249,17 @@ namespace linc {
 			{NULL, NULL} /* end of array */
 		};
 
-		void init_hxtrace(HxTraceFN fn){
+		void init_hxtrace(HxTraceFN fn) {
 			print_fn = fn;
 		}
 
-		void register_hxtrace(lua_State* L){
+		void register_hxtrace(lua_State* L) {
 			lua_getglobal(L, "_G");
 			luaL_register(L, NULL, printlib);
 			lua_pop(L, 1);
 		}
 
-		void unregister_hxtrace(lua_State* L){
+		void unregister_hxtrace(lua_State* L) {
 			lua_getglobal(L, "_G");
 			lua_pushnil(L);
 			lua_setglobal(L, NULL);
@@ -262,31 +267,44 @@ namespace linc {
 		}
 	} //helpers
 
-	/*
 	namespace callbacks {
 		static luaCallbackFN handler = 0;
-		static int luaCallback(lua_State *l) {
-			return handler(l, (::Dynamic*)lua_topointer(l, lua_upvalueindex(1)));
-		}
+		static int id = 0;
 
-		void pushcallback(lua_State* l, ::Dynamic fn) {
-			lua_pushlightuserdata(l, (void*)fn);
-			lua_pushcclosure(l, luaCallback, 1);
+		static int luaCallback(lua_State *l) {
+			return handler(l, lua_tointeger(l, lua_upvalueindex(1)));
 		}
 
 		void init_callbacks(luaCallbackFN fn) {
 			handler = fn;
 		}
 
-		void add_callback(lua_State* l, const char *name, ::Dynamic fn) {
-			lua_pushlightuserdata(l, (void*)fn);
-			lua_pushcclosure(l, luaCallback, 1);
-			lua_setglobal(l, name);
+		int callback_id() {
+			return id++;
 		}
 
-		void remove_callback(lua_State* l, const char *name) {
-			lua_pushnil(l);
-			lua_setglobal(l, name);
+		int create_callback(lua_State* L) {
+			lua_pushinteger(L, id);
+			lua_pushcclosure(L, luaCallback, 1);
+			return id++;
 		}
-	}*/ //callbacks
+
+		int add_callback(lua_State* L, const char *name) {
+			int i = create_callback(L);
+			lua_setglobal(L, name);
+			return i;
+		}
+
+		int link_callback(lua_State* L, int id, const char *name) {
+			lua_pushinteger(L, id);
+			lua_pushcclosure(L, luaCallback, 1);
+			lua_setglobal(L, name);
+			return id;
+		}
+
+		void unlink_callback(lua_State* L, const char *name) {
+			lua_pushnil(L);
+			lua_setglobal(L, name);
+		}
+	}
 } //linc

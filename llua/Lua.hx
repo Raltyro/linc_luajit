@@ -527,6 +527,9 @@ extern class Lua {
 
 	/* unofficial API helpers */
 
+	@:native('linc::helpers::statetoint')
+	static function statetoint(l:State):Int;
+
 	@:native('linc::helpers::init_hxtrace') // works?
 	static function init_hxtrace(f:Callable<String->Int>):Void;
 
@@ -536,19 +539,23 @@ extern class Lua {
 	@:native('linc::helpers::unregister_hxtrace') // works?
 	static function unregister_hxtrace(l:State):Void;
 
-	/*
 	@:native('linc::callbacks::init_callbacks')
-	static function init_callbacks(fn:Callable<State->Lua_CallbackPointer->Int>):Void;
+	static function init_callbacks(fn:Callable<State->Int->Int>):Void;
 
-	@:native('linc::callbacks::pushcallback')
-	static function pushcallback(l:State, fn:Any):Void;
+	@:native('linc::callbacks::callback_id')
+	static function callback_id():Int;
+
+	@:native('linc::callbacks::create_callback')
+	static function create_callback(l:State):Int;
 
 	@:native('linc::callbacks::add_callback')
-	static function add_callback(l:State, name:String, fn:Any):Void;
+	static function add_callback(l:State, name:String):Int;
 
-	@:native('linc::callbacks::remove_callback')
-	static function remove_callback(l:State, name:String):Void;
-	*/
+	@:native('linc::callbacks::link_callback')
+	static function link_callback(l:State, i:Int, name:String):Int;
+
+	@:native('linc::callbacks::unlink_callback')
+	static function unlink_callback(l:State, name:String):Void;
 }
 
 @:include('Std')
@@ -576,79 +583,123 @@ class Lua_helper {
 
 	/* callbacks */
 
+	public static var statics:Map<String, Int> = new Map<String, Int>();
+
 	private static var __inited:Bool = false;
+	private static var _luas:Map<Int, Map<String, Int>> = new Map<Int, Map<String, Int>>();
+	private static var _luaUnks:Map<Int, Array<Int>> = new Map<Int, Array<Int>>();
 	private static var _callbacks:Map<Int, Lua_Callback> = new Map<Int, Lua_Callback>();
-	private static var _luas:Map<StatePointer, Map<String, Int>> = new Map<StatePointer, Map<String, Int>>();
-	private static var _id:Int = 0;
-	private static var _callback_handler:Lua_CFunction;
+	private static var _advs:Map<Int, Bool> = new Map<Int, Bool>();
 	private static var _args:Array<Any>;
 
 	public static function init_callbacks(l:State):Void {
-		var r:StatePointer = getstatepointer(l);
-		if (!_luas.exists(r)) _luas.set(r, new Map<String, Int>());
+		var p:Int = Lua.statetoint(l);
+		if (!_luas.exists(p)) {
+			_luas.set(p, new Map<String, Int>());
+			_luaUnks.set(p, []);
+		}
 		if (__inited) return;
-		_callback_handler = Callable.fromStaticFunction(callback_handler);
-		_args = [];
 		__inited = true;
+		_args = [];
+		Lua.init_callbacks(Callable.fromStaticFunction(callback_handler));
 	}
 
-	public static function create_callback(l:State, fn:Lua_Callback):Int {
-		_callbacks.set(_id, fn);
-		Lua.pushinteger(l, _id);
-		Lua.pushcclosure(l, _callback_handler, 1);
-
-		return _id++;
+	inline public static function link_callback(i:Int, fn:Lua_Callback, adv:Bool) {
+		_callbacks.set(i, fn);
+		_advs.set(i, adv);
 	}
 
-	public static function add_callback(l:State, fname:String, fn:Lua_Callback):Int {
-		var id = create_callback(l, fn);
-		_luas.get(getstatepointer(l)).set(fname, id);
-		Lua.setglobal(l, fname);
-		return id;
+	inline public static function unlink_callback(i:Int) {
+		_callbacks.remove(i);
+		_advs.remove(i);
 	}
 
-	public static function unlink_callback(id:Int):Void _callbacks.remove(id);
-
-	public static function remove_callback(l:State, fname:String):Void {
-		inline unlink_callback(_luas.get(getstatepointer(l)).get(fname));
-		Lua.pushnil(l);
-		Lua.setglobal(l, fname);
+	public static function link_static_callbacks(l:State):Void {
+		for (fname in statics.keys()) link_static_callback(l, fname);
 	}
 
-	public static function clear_callbacks(l:State):Void
-		for (key in _luas.get(getstatepointer(l)).keys()) inline remove_callback(l, key);
+	public static function link_static_callback(l:State, fname:String):Void {
+		if (statics.exists(fname)) return;
+		Lua.link_callback(l, statics.get(fname), fname);
+	}
+
+	public static function create_callback(l:State, ?adv:Bool = false, fn:Lua_Callback):Int {
+		var i:Int = Lua.create_callback(l);
+		link_callback(i, fn, adv);
+		_luaUnks.get(Lua.statetoint(l)).push(i);
+		return i;
+	}
+
+	public static function set_static_callback(fname:String, ?adv:Bool = false, fn:Lua_Callback):Int {
+		var i:Int = Lua.callback_id();
+		link_callback(i, fn, adv);
+		statics.set(fname, i);
+		return i;
+	}
+
+	public static function remove_static_callback(fname:String):Void {
+		if (statics.exists(fname)) return;
+		unlink_callback(statics.get(fname));
+		statics.remove(fname);
+	}
+
+	public static function remove_static_callbacks():Void
+		for (fname in statics.keys()) remove_static_callback(fname);
+
+	public static function add_callback(l:State, fname:String, ?adv:Bool = false, fn:Lua_Callback):Int {
+		var i:Int = Lua.add_callback(l, fname);
+		link_callback(i, fn, adv);
+		_luas.get(Lua.statetoint(l)).set(fname, i);
+		return i;
+	}
+
+	static function _remove_callback(l:State, i:Int, fname:String):Int {
+		unlink_callback(i);
+		Lua.unlink_callback(l, fname);
+		return i;
+	}
+
+	public static function remove_callback(l:State, fname:String):Int
+		return _remove_callback(l, _luas.get(Lua.statetoint(l)).get(fname), fname);
+
+	public static function clear_callbacks(l:State):Void {
+		var callbacks = _luas.get(Lua.statetoint(l));
+		for (key in callbacks.keys()) _remove_callback(l, callbacks.get(key), key);
+	}
 
 	public static function terminate_callbacks(l:State):Void {
 		clear_callbacks(l);
-		_luas.remove(getstatepointer(l));
+		for (i in _luaUnks.get(Lua.statetoint(l))) unlink_callback(i);
 	}
 
-	private inline static function callback_handler(r:StatePointer):Int {
-		var l:State = Lua_helper.getstate(r);
-		var fn:Lua_Callback = _callbacks.get(Lua.tointeger(l, Lua.upvalueindex(1)));
+	private static function callback_handler(l:State, i:Int):Int {
+		var fn:Lua_Callback = _callbacks.get(i);
+		var adv:Bool = _advs.get(i);
 		if (fn == null) return 0;
 
 		var nparams:Int = Lua.gettop(l);
-		getarguments(l, _args, nparams);
-		_args.resize(nparams + 1);
+		if (adv) _args[0] = l;
+		getarguments(l, _args, nparams, adv ? 1 : 0);
+		_args.resize(nparams + (adv ? 2 : 1));
 
 		var ret = null;
-		if (nparams <= 0)
+		if (!adv && nparams <= 0)
 			ret = fn();
 		else
 			ret = Reflect.callMethod(null, fn, _args);
 
-		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
+		return adv ? ret : ((ret != null && Convert.toLua(l, ret)) ? 1 : 0);
 	}
+
 
 	/* useful macros */
 
-	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int):Array<Any> {
+	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int, ?offset:Int = 0):Array<Any> {
 		if (args == null) args = [];
 		if (nparams == null) nparams = Lua.gettop(l);
 		if (nparams == 0) return args;
 
-		for (i in 0...nparams) args[i] = Convert.fromLua(l, i + 1);
+		for (i in 0...nparams) args[i + offset] = Convert.fromLua(l, i + 1);
 		return args;
 	}
 

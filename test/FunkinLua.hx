@@ -29,7 +29,7 @@ class FunkinLua {
 	public function new(script:String) {
 		scriptFields[script] = this;
 		scriptName = script;
-
+		trace('loading:' + script);
 		#if LUA_ALLOWED
 		lua = LuaL.newstate();
 		LuaL.openlibs(lua);
