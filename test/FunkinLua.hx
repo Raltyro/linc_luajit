@@ -38,7 +38,9 @@ class FunkinLua {
 
 		initializeGlobal();
 
-		Lua_helper.add_callback(lua, "duh", function(ref:Int):Any {
+		Lua_helper.link_extra_arguments(lua, [lua]);
+		Lua_helper.add_callback(lua, "duh", function(l:State, ref:Int):Any {
+			trace(l);
 			trace("hello");
 			Lua.rawgeti(lua, Lua.LUA_REGISTRYINDEX, ref);
 			if (!Lua.isfunction(lua, -1)) return null;
