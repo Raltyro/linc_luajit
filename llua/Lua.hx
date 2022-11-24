@@ -3,6 +3,7 @@ package llua;
 import llua.State;
 import cpp.Callable;
 import cpp.RawPointer;
+import cpp.vm.Gc;
 
 @:keep
 @:include('linc_lua.h')
@@ -589,6 +590,7 @@ class Lua_helper {
 	private static var _luas:Map<Int, Map<String, Int>> = new Map<Int, Map<String, Int>>();
 	private static var _luaUnks:Map<Int, Array<Int>> = new Map<Int, Array<Int>>();
 	private static var _callbacks:Map<Int, Lua_Callback> = new Map<Int, Lua_Callback>();
+	private static var _argluas:Map<Int, Bool> = new Map<Int, Bool>();
 	private static var _advs:Map<Int, Bool> = new Map<Int, Bool>();
 	private static var _args:Array<Any>;
 
@@ -604,41 +606,44 @@ class Lua_helper {
 		Lua.init_callbacks(Callable.fromStaticFunction(callback_handler));
 	}
 
-	inline public static function link_callback(i:Int, fn:Lua_Callback, adv:Bool) {
+	inline public static function link_callback(i:Int, fn:Lua_Callback, arglua:Bool, adv:Bool) {
 		_callbacks.set(i, fn);
+		_argluas.set(i, arglua);
 		_advs.set(i, adv);
 	}
 
 	inline public static function unlink_callback(i:Int) {
 		_callbacks.remove(i);
+		_argluas.remove(i);
 		_advs.remove(i);
 	}
 
 	public static function link_static_callbacks(l:State):Void {
 		for (fname in statics.keys()) link_static_callback(l, fname);
+		Gc.compact();
 	}
 
-	public static function link_static_callback(l:State, fname:String):Void {
-		if (statics.exists(fname)) return;
-		Lua.link_callback(l, statics.get(fname), fname);
+	public static function link_static_callback(l:State, fname:String):Int {
+		if (!statics.exists(fname)) return -1;
+		return Lua.link_callback(l, statics.get(fname), fname);
 	}
 
-	public static function create_callback(l:State, ?adv:Bool = false, fn:Lua_Callback):Int {
+	public static function create_callback(l:State, ?arglua:Bool = false, ?adv:Bool = false, fn:Lua_Callback):Int {
 		var i:Int = Lua.create_callback(l);
-		link_callback(i, fn, adv);
+		link_callback(i, fn, arglua, adv);
 		_luaUnks.get(Lua.statetoint(l)).push(i);
 		return i;
 	}
 
-	public static function set_static_callback(fname:String, ?adv:Bool = false, fn:Lua_Callback):Int {
+	public static function set_static_callback(fname:String, ?arglua:Bool = false, ?adv:Bool = false, fn:Lua_Callback):Int {
 		var i:Int = Lua.callback_id();
-		link_callback(i, fn, adv);
+		link_callback(i, fn, arglua, adv);
 		statics.set(fname, i);
 		return i;
 	}
 
 	public static function remove_static_callback(fname:String):Void {
-		if (statics.exists(fname)) return;
+		if (!statics.exists(fname)) return;
 		unlink_callback(statics.get(fname));
 		statics.remove(fname);
 	}
@@ -646,9 +651,9 @@ class Lua_helper {
 	public static function remove_static_callbacks():Void
 		for (fname in statics.keys()) remove_static_callback(fname);
 
-	public static function add_callback(l:State, fname:String, ?adv:Bool = false, fn:Lua_Callback):Int {
+	public static function add_callback(l:State, fname:String, ?arglua:Bool = false, ?adv:Bool = false, fn:Lua_Callback):Int {
 		var i:Int = Lua.add_callback(l, fname);
-		link_callback(i, fn, adv);
+		link_callback(i, fn, arglua, adv);
 		_luas.get(Lua.statetoint(l)).set(fname, i);
 		return i;
 	}
@@ -665,41 +670,47 @@ class Lua_helper {
 	public static function clear_callbacks(l:State):Void {
 		var callbacks = _luas.get(Lua.statetoint(l));
 		for (key in callbacks.keys()) _remove_callback(l, callbacks.get(key), key);
+		Gc.compact();
 	}
 
 	public static function terminate_callbacks(l:State):Void {
 		clear_callbacks(l);
 		for (i in _luaUnks.get(Lua.statetoint(l))) unlink_callback(i);
+		Gc.compact();
 	}
 
 	private static function callback_handler(l:State, i:Int):Int {
 		var fn:Lua_Callback = _callbacks.get(i);
-		var adv:Bool = _advs.get(i);
 		if (fn == null) return 0;
+		if (_advs.get(i)) return fn(l);
+		var arglua:Bool = _argluas.get(i);
 
-		var nparams:Int = Lua.gettop(l);
-		if (adv) _args[0] = l;
-		getarguments(l, _args, nparams, adv ? 1 : 0);
-		_args.resize(nparams + (adv ? 2 : 1));
-
-		var ret = null;
-		if (!adv && nparams <= 0)
-			ret = fn();
-		else
+		var n:Int = Lua.gettop(l);
+		var ret:Any = null;
+		if (arglua || n > 0) {
+			var i:Int = arglua ? n + 1 : n;
+			if (_args.length > i) _args.resize(i);
+			if (arglua) _args[0] = l;
+			_getarguments(l, _args, n, arglua ? 1 : 0);
 			ret = Reflect.callMethod(null, fn, _args);
+		}
+		else ret = fn();
 
-		return adv ? ret : ((ret != null && Convert.toLua(l, ret)) ? 1 : 0);
+		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
 	}
 
 
 	/* useful macros */
+
+	inline private static function _getarguments(l:State, args:Array<Any>, nparams:Int, offset:Int):Void
+		for (i in 0...nparams) args[i + offset] = Convert.fromLua(l, i + 1);
 
 	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int, ?offset:Int = 0):Array<Any> {
 		if (args == null) args = [];
 		if (nparams == null) nparams = Lua.gettop(l);
 		if (nparams == 0) return args;
 
-		for (i in 0...nparams) args[i + offset] = Convert.fromLua(l, i + 1);
+		_getarguments(l, args, nparams, offset);
 		return args;
 	}
 

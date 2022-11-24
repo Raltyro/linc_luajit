@@ -66,6 +66,7 @@ class FunkinLua {
 		}
 
 		trace('lua file loaded succesfully:' + script);
+		call('onCreate', [1, 3, "uwu", "hewwo!!!", "nyanyanya", "what the fuck"]);
 		#end
 	}
 
@@ -94,6 +95,48 @@ class FunkinLua {
 		set('buildTarget', 'unknown');
 		#end
 
+		#end
+	}
+
+	var lastCalledFunction:String = '';
+	public function call(func:String, args:Array<Any>):Dynamic {
+		#if LUA_ALLOWED
+		if (lua == null) return Function_Continue;
+		lastCalledFunction = func;
+
+		Lua.getglobal(lua, func);
+		var type:Int = Lua.type(lua, -1);
+
+		if (type != Lua.LUA_TFUNCTION) {
+			if (type > Lua.LUA_TNIL)
+				trace("ERROR ($func)): attempt to call a " + Lua.typename(lua, type) + " value as a callback");
+
+			Lua.pop(lua, 1);
+			return Function_Continue;
+		}
+
+		if (args != null) for (arg in args) Convert.toLua(lua, arg);
+		var status:Int = Lua.pcall(lua, args.length, 1, 0);
+
+		if (status != Lua.LUA_OK) {
+			trace("ERROR ($func)): " + getErrorMessage(status));
+			return Function_Continue;
+		}
+
+		var resultType:Int = Lua.type(lua, -1);
+		if (!resultIsAllowed(resultType)) {
+			trace("WARNING ($func): unsupported returned value type (\"" + Lua.typename(lua, resultType) + "\")");
+			Lua.pop(lua, 1);
+			return Function_Continue;
+		}
+
+		var result:Dynamic = cast Convert.fromLua(lua, -1);
+		if (result == null) result = Function_Continue;
+
+		Lua.pop(lua, 1);
+		return result;
+		#else
+		return Function_Continue;
 		#end
 	}
 
