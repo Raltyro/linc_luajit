@@ -700,13 +700,14 @@ class Lua_helper {
 
 		var n:Int = Lua.gettop(l);
 		var ret:Any = null;
-		if (en > 0 || n > 0) {
+		if (n > 0) {
 			var i:Int = n + en;
 			if (_args.length > i) _args.resize(i);
 			if (en > 0) for (d in 0...en) _args[d] = extra[d];
 			_getarguments(l, _args, n, en);
 			ret = Reflect.callMethod(null, fn, _args);
 		}
+		else if (en > 0) ret = Reflect.callMethod(null, fn, extra);
 		else ret = fn();
 
 		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
