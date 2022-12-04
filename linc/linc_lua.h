@@ -9,7 +9,7 @@
 #include "../lib/lua/src/lua.hpp"
 
 namespace linc {
-	typedef ::cpp::Function < int(::cpp::Reference<lua_State>, int) > luaCallbackFN;
+	typedef ::cpp::Function < int(::cpp::Reference<lua_State>, int, ::cpp::Reference<lua_State>) > luaCallbackFN;
 	typedef ::cpp::Function < int(String) > HxTraceFN;
 
 	namespace lua {
@@ -60,6 +60,7 @@ namespace linc {
 
 	namespace helpers {
 		extern int statetoint(lua_State* L);
+		extern lua_State* getmainthread(lua_State* L);
 		extern void init_hxtrace(HxTraceFN fn);
 		extern void register_hxtrace(lua_State* L);
 		extern void unregister_hxtrace(lua_State* L);

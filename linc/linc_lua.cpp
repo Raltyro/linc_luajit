@@ -272,7 +272,7 @@ namespace linc {
 		static int id = 0;
 
 		static int luaCallback(lua_State *l) {
-			return handler(l, lua_tointeger(l, lua_upvalueindex(1)));
+			return handler(l, lua_tointeger(l, lua_upvalueindex(1)), lua_tothread(l, lua_upvalueindex(2)));
 		}
 
 		void init_callbacks(luaCallbackFN fn) {
@@ -285,7 +285,8 @@ namespace linc {
 
 		int create_callback(lua_State* L) {
 			lua_pushinteger(L, id);
-			lua_pushcclosure(L, luaCallback, 1);
+			lua_pushthread(L);
+			lua_pushcclosure(L, luaCallback, 2);
 			return id++;
 		}
 
@@ -297,7 +298,8 @@ namespace linc {
 
 		int link_callback(lua_State* L, int id, const char *name) {
 			lua_pushinteger(L, id);
-			lua_pushcclosure(L, luaCallback, 1);
+			lua_pushthread(L);
+			lua_pushcclosure(L, luaCallback, 2);
 			lua_setglobal(L, name);
 			return id;
 		}

@@ -541,7 +541,7 @@ extern class Lua {
 	static function unregister_hxtrace(l:State):Void;
 
 	@:native('linc::callbacks::init_callbacks')
-	static function init_callbacks(fn:Callable<State->Int->Int>):Void;
+	static function init_callbacks(fn:Callable<State->Int->State->Int>):Void;
 
 	@:native('linc::callbacks::callback_id')
 	static function callback_id():Int;
@@ -587,11 +587,13 @@ class Lua_helper {
 	public static var statics:Map<String, Int> = new Map<String, Int>();
 
 	private static var __inited:Bool = false;
+	private static var __linc__:Map<Int, Int> = new Map<Int, Int>();
 	private static var _luas:Map<Int, Map<String, Int>> = new Map<Int, Map<String, Int>>();
 	private static var _luaUnks:Map<Int, Array<Int>> = new Map<Int, Array<Int>>();
 	private static var _callbacks:Map<Int, Lua_Callback> = new Map<Int, Lua_Callback>();
 	private static var _extras:Map<Int, Array<Any>> = new Map<Int, Array<Any>>();
 	private static var _advs:Map<Int, Bool> = new Map<Int, Bool>();
+	//private static var _cacheargs:Map<Int, Array<Any>> = new Map<Int, Array<Any>>();
 	private static var _args:Array<Any>;
 
 	public static function init_callbacks(l:State):Void {
@@ -684,10 +686,10 @@ class Lua_helper {
 		Gc.compact();
 	}
 
-	private static function callback_handler(l:State, i:Int):Int {
+	private static function callback_handler(l:State, i:Int, thr:State):Int {
 		var fn:Lua_Callback = _callbacks.get(i);
 		if (fn == null) return 0;
-		var extra:Array<Any> = _extras.get(Lua.statetoint(l));
+		var extra:Array<Any> = _extras.get(Lua.statetoint(thr));
 		var en:Int = extra != null ? extra.length : 0;
 		if (_advs.get(i)) {
 			if (en <= 0) return fn(l);
