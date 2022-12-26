@@ -686,40 +686,43 @@ class Lua_helper {
 		Gc.compact();
 	}
 
-	private static function callback_handler(l:State, i:Int, thr:State):Int {
+	private static function callback_handler(thr:State, i:Int, l:State):Int {
 		var fn:Lua_Callback = _callbacks.get(i);
 		if (fn == null) return 0;
-		var extra:Array<Any> = _extras.get(Lua.statetoint(thr));
-		var en:Int = extra != null ? extra.length : 0;
+
+		var extra = _extras.get(Lua.statetoint(l)), en = 0;
+		if (extra != null) en = extra.length;
+
 		if (_advs.get(i)) {
-			if (en <= 0) return fn(l);
-			var i:Int = en + 1;
-			if (_args.length > i) _args.resize(i);
-			for (d in 1...i) _args[d] = extra[d - 1];
-			_args[0] = l;
+			if (en <= 0) return fn(thr);
+			if (_args.length > (i = en + 1)) _args.resize(i);
+			i = 0; while(i < en) _args[i + 1] = extra[++i];
+			_args[0] = thr;
+
 			return Reflect.callMethod(null, fn, _args);
 		}
 
-		var n:Int = Lua.gettop(l);
-		var ret:Any = null;
+		var n = Lua.gettop(thr), ret;
 		if (n > 0) {
-			var i:Int = n + en;
-			if (_args.length > i) _args.resize(i);
-			if (en > 0) for (d in 0...en) _args[d] = extra[d];
-			_getarguments(l, _args, n, en);
+			if (_args.length > (i = n + en)) _args.resize(i);
+			i = 0; while(i < en) _args[i] = extra[i++];
+			_getarguments(thr, _args, n, en);
+
 			ret = Reflect.callMethod(null, fn, _args);
 		}
 		else if (en > 0) ret = Reflect.callMethod(null, fn, extra);
 		else ret = fn();
 
-		return (ret != null && Convert.toLua(l, ret)) ? 1 : 0;
+		if (!Convert.toLua(thr, ret)) Lua.pushnil(thr);
+		return 1;
 	}
 
 
 	/* useful macros */
 
-	inline private static function _getarguments(l:State, args:Array<Any>, nparams:Int, offset:Int):Void
-		for (i in 0...nparams) args[i + offset] = Convert.fromLua(l, i + 1);
+	inline private static function _getarguments(l:State, args:Array<Any>, nparams:Int, offset:Int):Void {
+		var i = 0; while(i < nparams) args[i + offset] = Convert.fromLua(l, ++i);
+	}
 
 	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int, ?offset:Int = 0):Array<Any> {
 		if (args == null) args = [];
