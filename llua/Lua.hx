@@ -594,17 +594,19 @@ class Lua_helper {
 	private static var _extras:Map<Int, Array<Any>> = new Map<Int, Array<Any>>();
 	private static var _advs:Map<Int, Bool> = new Map<Int, Bool>();
 	//private static var _cacheargs:Map<Int, Array<Any>> = new Map<Int, Array<Any>>();
-	private static var _args:Array<Any>;
+	private static var _args2:Array<Any>;
+	private static var _args1:Array<Any>;
 
 	public static function init_callbacks(l:State):Void {
 		var p:Int = Lua.statetoint(l);
 		if (!_luas.exists(p)) {
 			_luas.set(p, new Map<String, Int>());
 			_luaUnks.set(p, []);
+			_extras.set(p, []);
 		}
 		if (__inited) return;
 		__inited = true;
-		_args = [];
+		_args1 = []; _args2 = [];
 		Lua.init_callbacks(Callable.fromStaticFunction(callback_handler));
 	}
 
@@ -687,30 +689,31 @@ class Lua_helper {
 	}
 
 	private static function callback_handler(thr:State, i:Int, l:State):Int {
-		var fn:Lua_Callback = _callbacks.get(i);
-		if (fn == null) return 0;
+		var fn:Lua_Callback = _callbacks.get(i), nil = null;
+		//if (fn == null) return 0;
 
-		var extra = _extras.get(Lua.statetoint(l)), en = 0;
-		if (extra != null) en = extra.length;
+		var this1:Map<Int, Array<Any>> = _extras;
+		var extra:Array<Any> = this1.get(Lua.statetoint(l)), en:Int = extra.length;
 
 		if (_advs.get(i)) {
+			var _args = _args2;
 			if (en <= 0) return fn(thr);
 			if (_args.length > (i = en + 1)) _args.resize(i);
-			i = 0; while(i < en) _args[i + 1] = extra[++i];
+			i = 0; while(i < en) {_args[i + 1] = extra[i];i++;}
 			_args[0] = thr;
 
-			return Reflect.callMethod(null, fn, _args);
+			return Reflect.callMethod(nil, fn, _args);
 		}
 
-		var n = Lua.gettop(thr), ret;
+		var n:Int = Lua.gettop(thr), _args = _args1, ret;
 		if (n > 0) {
 			if (_args.length > (i = n + en)) _args.resize(i);
-			i = 0; while(i < en) _args[i] = extra[i++];
+			if (en > 0) {i = 0; while(i < en) {_args[i] = extra[i];i++;}}
 			_getarguments(thr, _args, n, en);
 
-			ret = Reflect.callMethod(null, fn, _args);
+			ret = Reflect.callMethod(nil, fn, _args);
 		}
-		else if (en > 0) ret = Reflect.callMethod(null, fn, extra);
+		else if (en > 0) ret = Reflect.callMethod(nil, fn, extra);
 		else ret = fn();
 
 		if (!Convert.toLua(thr, ret)) Lua.pushnil(thr);
@@ -720,11 +723,15 @@ class Lua_helper {
 
 	/* useful macros */
 
-	inline private static function _getarguments(l:State, args:Array<Any>, nparams:Int, offset:Int):Void {
-		var i = 0; while(i < nparams) args[i + offset] = Convert.fromLua(l, ++i);
+	inline private static function _getarguments(l:State, args:Dynamic, nparams:Int, offset:Int):Void {
+		var i:Int = 0, _temp:Int;
+		while(i < nparams) {
+			_temp = i + offset;
+			args[_temp] = Convert.fromLua(l, ++i);
+		}
 	}
 
-	public static function getarguments(l:State, ?args:Array<Any>, ?nparams:Int, ?offset:Int = 0):Array<Any> {
+	public static function getarguments(l:State, ?args:Dynamic, ?nparams:Int, ?offset:Int = 0):Array<Any> {
 		if (args == null) args = [];
 		if (nparams == null) nparams = Lua.gettop(l);
 		if (nparams == 0) return args;
