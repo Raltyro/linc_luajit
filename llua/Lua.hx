@@ -682,8 +682,11 @@ class Lua_helper {
 	}
 
 	public static function terminate_callbacks(l:State):Void {
-		clear_callbacks(l);
-		for (i in _luaUnks.get(Lua.statetoint(l))) unlink_callback(i);
+		var int = Lua.statetoint(l);
+		var callbacks = _luas.get(int);
+		if (callbacks == null) return;
+		for (key in callbacks.keys()) _remove_callback(l, callbacks.get(key), key);
+		for (i in _luaUnks.get(int)) unlink_callback(i);
 		unlink_extra_arguments(l);
 		Gc.compact();
 	}
